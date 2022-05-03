@@ -4,12 +4,14 @@ data L ag at
   | Neg (L ag at) 
   | And (L ag at) (L ag at) 
   | Know ag (L ag at)
+  | Believe ag (L ag at)
 
 instance (Show ag,Show at) => Show (L ag at) where
   show (Prim p) = show p
   show (Neg p)  = "¬ " ++ show p
   show (And p1 p2) = "(" ++ show p1 ++ " ⋀ " ++ show p2 ++ ")"
   show (Know a p)  = "K<" ++ show a ++ ">[" ++ show p ++ "]"
+  show (Believe a p) = "B<" ++ show a ++ ">[" ++ show p ++ "]"
 
 type Collection a = [a] -- Set a
 isin :: Eq a => a -> Collection a -> Bool
@@ -38,6 +40,7 @@ sem model@(M{agents,prims,states,accessibility,valuation}) s phi = sem' phi
         sem' (Neg phi)   = not $ models s phi
         sem' (And p1 p2) = models s p1 && models s p2
         sem' (Know a p)  = and [models t p | (s',t) <- accessibility a, s == s']
+        sem' (Believe a p)  = and [models t p | (s',t) <- accessibility a, s == s']
 
 
 -- instance Show (L Char String) where
@@ -75,19 +78,42 @@ kModel = M {agents,prims,states,accessibility,valuation}
         valuation W T_a = True
         valuation W T_b = True
 
-tests = concat [
-        [(Know ag (Prim pr))       
-        ,(Know ag (Neg $ Prim pr))
-        ,(Neg $ Know ag (Prim pr))] 
-        | pr <- prims kModel, ag <- agents kModel]
+islandKModel :: Int -> KripkekModel Int Int [Int]
+islandKModel n = M {agents,prims,states,accessibility,valuation}
+  where agents = [1..n]
+        prims  = [1..n]
+        s0 = map (const 1) [1..n]
+        states = s0 : [[if j == i then 0 else 1 | j <- [1..n]] | i <- [1..n]] -- [0..round (2.0 ** (fromIntegral n :: Float))]
+        accessibility m = [(s0,s0),(s0,[if j == m then 0 else 1 | j <- [1..n]]),([if j == m then 0 else 1 | j <- [1..n]],s0),([if j == m then 0 else 1 | j <- [1..n]],[if j == m then 0 else 1 | j <- [1..n]])]
+        valuation s k = if s!!(k-1) == 1 then True else False
+        -- the binary number with the n-th bit 1, and rest all zeros, is 2^n
+        -- logb x y = round $ logBase (fromIntegral x :: Float) (fromIntegral y :: Float)
 
-runT = do
+-- tests m = concat [
+--         [(Know ag (Prim pr))       
+--         ,(Know ag (Neg $ Prim pr))
+--         ,(Neg $ Know ag (Prim pr))
+--         ,(Believe ag (Prim pr))
+--         ,(Believe ag (Neg $ Prim pr))
+--         ,(Neg $ Believe ag (Prim pr))] 
+--         | pr <- prims m, ag <- agents m]
+tests m = concat [
+        [(Know ag (Prim pr))] 
+        | pr <- prims m, ag <- agents m]
+
+runT m = do
   let prints = do 
-      test    <- tests
-      state   <- states kModel
-      let res = sem kModel state test
+      test    <- tests m
+      state   <- states m
+      let res = sem m state test
       let padding = (if res then " " else "") ++ "    "
       return $ putStrLn ("[" ++ show res ++ "]" ++padding++ "M," ++ show state ++ " ⊨ " ++ show test)
   sequence prints
   return ()
+
+
+kripkeToDOTGraph m = "digraph G {" ++ concat (map (\s -> s ++ ";\n") nodesStmts) ++ concat (map (\s -> s ++ ";\n") edgeStmts) ++ "}" 
+  where nodesStmts = [ concat (map show $ (states m)!!i) ++ " [label=\"" ++ show i ++ "\"]" | i <- [0..(length (states m))-1]]
+        cone (a,b) = concat (map show a) ++ " -> " ++ concat (map show b)
+        edgeStmts = [cone ss | ag <- agents m, ss <- accessibility m ag]
 
