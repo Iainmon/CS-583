@@ -5,11 +5,11 @@ data L ag at
   | And (L ag at) (L ag at) 
   | Know ag (L ag at)
 
--- instance (Show ag,Show at) => Show (L ag at) where
---   show (Prim p) = show p
---   show (Neg p)  = "¬ " ++ show p
---   show (And p1 p2) = "(" ++ show p1 ++ " ⋀ " ++ show p2 ++ ")"
---   show (Know a p)  = "K<" ++ show a ++ ">[" ++ show p ++ "]"
+instance (Show ag,Show at) => Show (L ag at) where
+  show (Prim p) = show p
+  show (Neg p)  = "¬ " ++ show p
+  show (And p1 p2) = "(" ++ show p1 ++ " ⋀ " ++ show p2 ++ ")"
+  show (Know a p)  = "K<" ++ show a ++ ">[" ++ show p ++ "]"
 
 type Collection a = [a] -- Set a
 isin :: Eq a => a -> Collection a -> Bool
@@ -40,45 +40,54 @@ sem model@(M{agents,prims,states,accessibility,valuation}) s phi = sem' phi
         sem' (Know a p)  = and [models t p | (s',t) <- accessibility a, s == s']
 
 
-instance Show (L Char String) where
-  show (Prim p) = p
-  show (Neg p)  = "¬ " ++ show p
-  show (And p1 p2) = "(" ++ show p1 ++ " ⋀ " ++ show p2 ++ ")"
-  show (Know a p)  = "K<" ++ a:[] ++ ">[" ++ show p ++ "]"
+-- instance Show (L Char String) where
+--   show (Prim p) = p
+--   show (Neg p)  = "¬ " ++ show p
+--   show (And p1 p2) = "(" ++ show p1 ++ " ⋀ " ++ show p2 ++ ")"
+--   show (Know a p)  = "K<" ++ a:[] ++ ">[" ++ show p ++ "]"
+
+data KMAgent = A | B deriving Eq
+instance Show KMAgent where { show A = "a"; show B = "b" }
+
+data KMPrim  = T_a | T_b deriving Eq
+instance Show KMPrim where { show T_a = "t_a"; show T_b = "t_b" }
+
+data KMState = S | U | V | W deriving Eq
+instance Show KMState where { show S = "s"; show U = "u"; show V = "v"; show W = "w"; }
 
 
-kModel :: KripkekModel Char String Char
+kModel :: KripkekModel KMAgent KMPrim KMState
 kModel = M {agents,prims,states,accessibility,valuation}
   where 
-        agents = "ab"
-        prims = ["t_" ++ (a:"") | a <- agents]
-        states = "suvw"
+        agents = [A,B]
+        prims = [T_a,T_b]
+        states = [S,U,V,W]
 
-        accessibility 'a' = [(s1,s2) | s1 <- "su", s2 <- "su"] ++ [(s1,s2) | s1 <- "wv", s2 <- "wv"]
-        accessibility 'b' = [(s1,s2) | s1 <- "sw", s2 <- "sw"] ++ [(s1,s2) | s1 <- "uv", s2 <- "uv"]
+        accessibility A = [(s1,s2) | s1 <- [S,U], s2 <- [S,U]] ++ [(s1,s2) | s1 <- [W,V], s2 <- [W,V]]
+        accessibility B = [(s1,s2) | s1 <- [S,W], s2 <- [S,W]] ++ [(s1,s2) | s1 <- [U,V], s2 <- [U,V]]
 
-        valuation 's' "t_a" = False
-        valuation 's' "t_b" = True
-        valuation 'u' "t_a" = False
-        valuation 'u' "t_b" = False
-        valuation 'v' "t_a" = True
-        valuation 'v' "t_b" = False
-        valuation 'w' "t_a" = True
-        valuation 'w' "t_b" = True
+        valuation S T_a = False
+        valuation S T_b = True
+        valuation U T_a = False
+        valuation U T_b = False
+        valuation V T_a = True
+        valuation V T_b = False
+        valuation W T_a = True
+        valuation W T_b = True
 
-tests = [(Know 'a' (Prim "t_a"))       
-        ,(Know 'a' (Neg $ Prim "t_a"))
-        ,(Know 'a' (Prim "t_b"))       
-        ,(Know 'a' (Neg $ Prim "t_b")) 
-        ,(Neg $ Know 'a' (Prim "t_b"))
-        ]
+tests = concat [
+        [(Know ag (Prim pr))       
+        ,(Know ag (Neg $ Prim pr))
+        ,(Neg $ Know ag (Prim pr))] 
+        | pr <- prims kModel, ag <- agents kModel]
 
 runT = do
   let prints = do 
-      test <- tests
-      let res = sem kModel 'v' test
+      test    <- tests
+      state   <- states kModel
+      let res = sem kModel state test
       let padding = (if res then " " else "") ++ "    "
-      return $ putStrLn ("[" ++ show res ++ "]" ++padding++ "M,v ⊨ " ++ show test)
+      return $ putStrLn ("[" ++ show res ++ "]" ++padding++ "M," ++ show state ++ " ⊨ " ++ show test)
   sequence prints
   return ()
 
