@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns, FlexibleInstances #-}
+
 data L ag at 
   = Prim at
   | Neg (L ag at) 
@@ -20,6 +21,8 @@ union  :: Eq a => Collection a -> Collection a -> Collection a
 union = undefined
 toList :: Collection a -> [a]
 toList = undefined
+
+type State = Map PrimProp Bool
 
 type R agent state = agent -> Collection (state,state)
 type V state prim  = state -> prim -> Bool
