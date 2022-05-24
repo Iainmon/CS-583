@@ -1,6 +1,21 @@
 {-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
 
-import Data.List (inits, tails, nub)
+{-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
+
+{-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
+
+{-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
+{-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
+
+{-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
+
+{-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
+
+{-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
+import Data.List (inits, tails, nub, permutations, nubBy, isPrefixOf)
+
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 data L ag at 
   = Prim at
@@ -15,6 +30,20 @@ instance (Show ag,Show at) => Show (L ag at) where
   show (And p1 p2) = "(" ++ show p1 ++ " ⋀ " ++ show p2 ++ ")"
   show (Know a p)  = "K<" ++ show a ++ ">[" ++ show p ++ "]"
   show (Believe a p) = "B<" ++ show a ++ ">[" ++ show p ++ "]"
+
+agentsUsed :: L ag at -> [ag]
+agentsUsed (Prim _) = []
+agentsUsed (Neg phi) = agentsUsed phi
+agentsUsed (And p1 p2) = agentsUsed p1 ++ agentsUsed p2
+agentsUsed (Know a p) = a : agentsUsed p
+agentsUsed _ = undefined
+
+primsUsed :: L ag at -> [at]
+primsUsed (Prim p) = [p]
+primsUsed (Neg phi) = primsUsed phi
+primsUsed (And p1 p2) = primsUsed p1 ++ primsUsed p2
+primsUsed (Know _ p) = primsUsed p
+primsUsed _ = undefined
 
 type Collection a = [a] -- Set a
 isin :: Eq a => a -> Collection a -> Bool
@@ -37,6 +66,8 @@ data KripkeModel agent prim state
       , valuation :: V state prim 
       }
 
+instance (Show agent,Show prim,Show state) => Show (KripkeModel agent prim state) where
+  show M{agents,prims,states,accessibility,valuation} = "Agents: " ++ show agents ++ "\nPrims: " ++ show prims ++ "\nStates: " ++ show states ++ "\nAccess: " ++ show [(a,rel) | a <- agents, rel <- accessibility a]
 
 sem :: Eq state => KripkeModel agent prim state -> state -> L agent prim -> Bool
 sem model@(M{agents,prims,states,accessibility,valuation}) s phi = sem' phi
@@ -49,7 +80,6 @@ sem model@(M{agents,prims,states,accessibility,valuation}) s phi = sem' phi
 
 
 
-
 type State prim = ([prim],[prim]) -- (truths, falsehoods)
 
 realWorld = ([],[])
@@ -57,6 +87,7 @@ realWorld = ([],[])
 decide :: Eq prim => State prim -> prim -> Bool
 decide (trus,flss) p | p `elem` trus = True
                      | p `elem` flss = False
+                     | trus == [] && flss == [] = True 
                      | otherwise     = undefined
 
 partitions :: [a] -> [[[a]]]
@@ -67,8 +98,12 @@ partitions = foldr (\x r -> r >>= bloat x) [[]]
 bipartitions :: [a] -> [[[a]]]
 bipartitions = filter ((==) 2 . length) . partitions
 
-consStates :: [prim] -> [State prim]
-consStates xs = [(as,bs) | [as,bs] <- bipartitions xs]
+consStates :: Eq prim => [prim] -> [State prim]
+-- consStates xs = [(as,bs) | [as,bs] <- bipartitions xs]
+consStates xs = [(a,b) | b <- subsets xs,
+                         a <- subsets xs,
+                         a ++ b `elem` permutations xs]
+
 
 consModel :: (Eq agent, Eq prim) => [agent] -> [prim] -> R agent (State prim) -> KripkeModel agent prim (State prim)
 consModel ags prms accessR = M { agents       = ags
@@ -83,22 +118,41 @@ subsets :: [a] -> [[a]]
 subsets []  = [[]]
 subsets (x:xs) = subsets xs ++ map (x:) (subsets xs)
 
-consRelations :: [state] -> state -> [[(state,state)]]
-consRelations states s = map (map (s,)) $ subsets states
+consRelations :: Eq state => [state] -> state -> [[(state,state)]]
+consRelations states s = nub $ map (map (s,) . nub) $ subsets states
 
 functionify :: Eq a => [(a,b)] -> a -> b
 functionify [] _ = undefined
 functionify ((x,y):xys) x' | x == x'   = y
                            | otherwise = functionify xys x'
 
-consModels :: (Eq agent, Eq prim) => [agent] -> [prim] -> [KripkeModel agent prim (State prim)]
+
+type KripkeStar agent prim = KripkeModel agent prim (State prim)
+
+consModels :: (Eq agent, Eq prim) => [agent] -> [prim] -> [KripkeStar agent prim]
 consModels ags prms = map (consModel ags prms) relations
-  where relations     = map functionify $ filter valid $ subsets relationPairs
-        relationPairs = [(a,rel) | a <- ags, rel <- consRelations (consStates prms) realWorld]
+  where relations     = map functionify  $ filter valid $ subsets relationPairs
+        relationPairs = nub [(a,rel) | a <- ags, rel <- consRelations states realWorld]
         valid rel = length ags == length (nub $ map fst rel)
+        states = consStates prms
 
 
+findModels :: (Eq ag, Eq at) => L ag at -> [KripkeStar ag at]
+findModels formula = filter satisfies models
+  where models = consModels (agentsUsed formula) (primsUsed formula)
+        satisfies m = sem m realWorld formula
 
+
+sameRelation :: (Eq ag, Eq at) => KripkeStar ag at -> KripkeStar ag at -> Bool
+sameRelation k1 k2 = nub [(a,s) | a <- agents k1,s <- accessibility k1 a] == nub [(a,s) | a <- agents k2,s <- accessibility k2 a]
+
+
+formula = (Know "a" (Prim "ta") `And` (Prim "tb")) `And` (Know "b" (Neg $ And (Neg $ Prim "ta") (Neg $ Prim "tb")))
+
+
+allModels = consModels (agentsUsed formula) (primsUsed formula)
+
+foundModels = nubBy sameRelation $ findModels formula
 
 
 
@@ -176,3 +230,14 @@ kripkeToDOTGraph m = "digraph G {" ++ concat (map (\s -> s ++ ";\n") nodesStmts)
         cone (a,b) = concat (map show a) ++ " -> " ++ concat (map show b)
         edgeStmts = [cone ss | ag <- agents m, ss <- accessibility m ag]
 
+
+remove :: String -> String -> String
+remove w "" = ""
+remove w s@(c:cs) 
+  | w `isPrefixOf` s = remove w (drop (length w) s)
+  | otherwise = c : remove w cs
+  
+kripkeToDOTGraph' m = remove "\\\"" $ "digraph G {" ++ concat (map (\s -> s ++ ";\n") nodesStmts) ++ concat (map (\s -> s ++ ";\n") edgeStmts) ++ "}" 
+  where nodesStmts = [ show (show s) ++ " [label=" ++ show (show s) ++ "]" | s <- states m]
+        cone (a,b) = show (show a) ++ "  -> " ++ show (show b)
+        edgeStmts = [cone ss | ag <- agents m, ss <- accessibility m ag]
