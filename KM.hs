@@ -1,4 +1,6 @@
-{-# LANGUAGE NamedFieldPuns, FlexibleInstances #-}
+{-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
+
+import Data.List (inits, tails, nub)
 
 data L ag at 
   = Prim at
@@ -22,12 +24,12 @@ union = undefined
 toList :: Collection a -> [a]
 toList = undefined
 
-type State = Map PrimProp Bool
+-- type State = Map PrimProp Bool
 
 type R agent state = agent -> Collection (state,state)
 type V state prim  = state -> prim -> Bool
 
-data KripkekModel agent prim state
+data KripkeModel agent prim state
   = M { agents :: Collection agent
       , prims  :: Collection prim
       , states :: Collection state
@@ -36,7 +38,7 @@ data KripkekModel agent prim state
       }
 
 
-sem :: Eq state => KripkekModel agent prim state -> state -> L agent prim -> Bool
+sem :: Eq state => KripkeModel agent prim state -> state -> L agent prim -> Bool
 sem model@(M{agents,prims,states,accessibility,valuation}) s phi = sem' phi
   where models = sem model -- entails
         sem' (Prim pr)   = valuation s pr
@@ -44,6 +46,60 @@ sem model@(M{agents,prims,states,accessibility,valuation}) s phi = sem' phi
         sem' (And p1 p2) = models s p1 && models s p2
         sem' (Know a p)  = and [models t p | (s',t) <- accessibility a, s == s']
         sem' (Believe a p)  = and [models t p | (s',t) <- accessibility a, s == s']
+
+
+
+
+type State prim = ([prim],[prim]) -- (truths, falsehoods)
+
+realWorld = ([],[])
+
+decide :: Eq prim => State prim -> prim -> Bool
+decide (trus,flss) p | p `elem` trus = True
+                     | p `elem` flss = False
+                     | otherwise     = undefined
+
+partitions :: [a] -> [[[a]]]
+partitions = foldr (\x r -> r >>= bloat x) [[]]
+  where bloat x  []      = [[[x]]]
+        bloat x (xs:xss) = ((x:xs):xss) : map (xs:) (bloat x xss)
+
+bipartitions :: [a] -> [[[a]]]
+bipartitions = filter ((==) 2 . length) . partitions
+
+consStates :: [prim] -> [State prim]
+consStates xs = [(as,bs) | [as,bs] <- bipartitions xs]
+
+consModel :: (Eq agent, Eq prim) => [agent] -> [prim] -> R agent (State prim) -> KripkeModel agent prim (State prim)
+consModel ags prms accessR = M { agents       = ags
+                              , prims         = prms
+                              , states        = consStates prms
+                              , valuation     = decide
+                              , accessibility = accessR
+                              }
+            
+
+subsets :: [a] -> [[a]]
+subsets []  = [[]]
+subsets (x:xs) = subsets xs ++ map (x:) (subsets xs)
+
+consRelations :: [state] -> state -> [[(state,state)]]
+consRelations states s = map (map (s,)) $ subsets states
+
+functionify :: Eq a => [(a,b)] -> a -> b
+functionify [] _ = undefined
+functionify ((x,y):xys) x' | x == x'   = y
+                           | otherwise = functionify xys x'
+
+consModels :: (Eq agent, Eq prim) => [agent] -> [prim] -> [KripkeModel agent prim (State prim)]
+consModels ags prms = map (consModel ags prms) relations
+  where relations     = map functionify $ filter valid $ subsets relationPairs
+        relationPairs = [(a,rel) | a <- ags, rel <- consRelations (consStates prms) realWorld]
+        valid rel = length ags == length (nub $ map fst rel)
+
+
+
+
 
 
 -- instance Show (L Char String) where
@@ -62,7 +118,7 @@ data KMState = S | U | V | W deriving Eq
 instance Show KMState where { show S = "s"; show U = "u"; show V = "v"; show W = "w"; }
 
 
-kModel :: KripkekModel KMAgent KMPrim KMState
+kModel :: KripkeModel KMAgent KMPrim KMState
 kModel = M {agents,prims,states,accessibility,valuation}
   where 
         agents = [A,B]
@@ -81,7 +137,7 @@ kModel = M {agents,prims,states,accessibility,valuation}
         valuation W T_a = True
         valuation W T_b = True
 
-islandKModel :: Int -> KripkekModel Int Int [Int]
+islandKModel :: Int -> KripkeModel Int Int [Int]
 islandKModel n = M {agents,prims,states,accessibility,valuation}
   where agents = [1..n]
         prims  = [1..n]
