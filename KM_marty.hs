@@ -1,26 +1,21 @@
 {-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
 
-
-{-# LANGUAGE NamedFieldPuns, FlexibleInstances, TupleSections #-}
 import Data.List (inits, tails, nub, permutations, nubBy, isPrefixOf, sort)
 
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-data L op ag at 
+data L ag at 
   = Prim at
   | Neg (L ag at) 
   | And (L ag at) (L ag at) 
   | Know ag (L ag at)
-  | Believe ag (L ag at)
-  | Modal op ag (L ag at)
 
 instance (Show ag,Show at) => Show (L ag at) where
   show (Prim p) = show p
   show (Neg p)  = "¬ " ++ show p
   show (And p1 p2) = "(" ++ show p1 ++ " ⋀ " ++ show p2 ++ ")"
   show (Know a p)  = "K<" ++ show a ++ ">[" ++ show p ++ "]"
-  show (Believe a p) = "B<" ++ show a ++ ">[" ++ show p ++ "]"
 
 agentsUsed :: Eq ag => L ag at -> [ag]
 agentsUsed (Prim _) = []
@@ -37,14 +32,6 @@ primsUsed (Know _ p) = primsUsed p
 primsUsed _ = undefined
 
 type Collection a = [a] -- Set a
-isin :: Eq a => a -> Collection a -> Bool
-isin = undefined
-union  :: Eq a => Collection a -> Collection a -> Collection a
-union = undefined
-toList :: Collection a -> [a]
-toList = undefined
-
--- type State = Map PrimProp Bool
 
 type R agent state = agent -> Collection (state,state)
 type V state prim  = state -> prim -> Bool
@@ -67,12 +54,12 @@ sem model@(M{agents,prims,states,accessibility,valuation}) s phi = sem' phi
         sem' (Neg phi)   = not $ models s phi
         sem' (And p1 p2) = models s p1 && models s p2
         sem' (Know a p)  = and [models t p | (s',t) <- accessibility a, s == s']
-        sem' (Believe a p)  = and [models t p | (s',t) <- accessibility a, s == s']
 
 
 
 type State prim = ([prim],[prim]) -- (truths, falsehoods)
 
+realWorld :: ([a], [b])
 realWorld = ([],[])
 
 decide :: Eq prim => State prim -> prim -> Bool
@@ -118,15 +105,21 @@ functionify ((x,y):xys) x' | x == x'   = y
                            | otherwise = functionify xys x'
 
 
+
+
 type KripkeStar agent prim = KripkeModel agent prim (State prim)
+
+bijectivePairings :: [a] -> [b] -> [[(a, b)]]
+bijectivePairings ags = map (zip ags) . permutations
+
+-- allRelations :: (Eq agent, Ord prim) => [agent] -> [prim] -> [[(agent,[(State prim,State prim)])]]
+-- allRelations ags prms = [ [(a,map (re   AalWord) b) | (a,b) <- pairing] | pairing <- bijectivePairings ags prms]
 
 consModels :: (Eq agent, Ord prim) => [agent] -> [prim] -> [KripkeStar agent prim]
 consModels ags prms = map (consModel ags prms) relations
-  where relations     = map functionify $ [ss | ss <- subsets relationPairs, (nub $map fst ss) `elem` permutations (nub ags)]-- length (map fst ss) == length ags]
-        relationPairs = nub [(a,rel) | rel <- rels, a <- ags]
-        valid rel = length ags == length (map fst rel) -- (map fst rel) `elem` permutations ags
-        states = consStates prms
-        rels = consRelations states realWorld
+  where relations = map functionify $ bijectivePairings ags $ filter ((==) (length ags) . length) $ subsets $ map (realWorld,) states
+        states    = consStates prms
+
 
 findModels :: (Eq ag, Ord at) => L ag at -> [KripkeStar ag at]
 findModels formula = filter satisfies models
@@ -138,7 +131,7 @@ sameRelation :: (Ord ag, Ord at) => KripkeStar ag at -> KripkeStar ag at -> Bool
 sameRelation k1 k2 = Set.fromList [(a,s) | a <- agents k1,s <- accessibility k1 a] == Set.fromList [(a,s) | a <- agents k2,s <- accessibility k2 a]
 
 
-formula = (Know "a" ((Prim "ta") `And` (Prim "tb")))-- `And` (Know "b" (Neg $ And (Neg $ Prim "ta") (Neg $ Prim "tb")))
+formula = (Know "a" ((Prim "ta") `And` (Prim "tb"))) `And` (Know "b" (Prim "tb"))-- (Know "b" (Neg $ And (Neg $ Prim "ta") (Neg $ Prim "tb")))
 
 
 allModels = consModels (agentsUsed formula) (primsUsed formula)
@@ -146,61 +139,6 @@ allModels = consModels (agentsUsed formula) (primsUsed formula)
 foundModels = nubBy sameRelation $ findModels formula
 
 
-
--- instance Show (L Char String) where
---   show (Prim p) = p
---   show (Neg p)  = "¬ " ++ show p
---   show (And p1 p2) = "(" ++ show p1 ++ " ⋀ " ++ show p2 ++ ")"
---   show (Know a p)  = "K<" ++ a:[] ++ ">[" ++ show p ++ "]"
-
-data KMAgent = A | B deriving Eq
-instance Show KMAgent where { show A = "a"; show B = "b" }
-
-data KMPrim  = T_a | T_b deriving Eq
-instance Show KMPrim where { show T_a = "t_a"; show T_b = "t_b" }
-
-data KMState = S | U | V | W deriving Eq
-instance Show KMState where { show S = "s"; show U = "u"; show V = "v"; show W = "w"; }
-
-
-kModel :: KripkeModel KMAgent KMPrim KMState
-kModel = M {agents,prims,states,accessibility,valuation}
-  where 
-        agents = [A,B]
-        prims = [T_a,T_b]
-        states = [S,U,V,W]
-
-        accessibility A = [(s1,s2) | s1 <- [S,U], s2 <- [S,U]] ++ [(s1,s2) | s1 <- [W,V], s2 <- [W,V]]
-        accessibility B = [(s1,s2) | s1 <- [S,W], s2 <- [S,W]] ++ [(s1,s2) | s1 <- [U,V], s2 <- [U,V]]
-
-        valuation S T_a = False
-        valuation S T_b = True
-        valuation U T_a = False
-        valuation U T_b = False
-        valuation V T_a = True
-        valuation V T_b = False
-        valuation W T_a = True
-        valuation W T_b = True
-
-islandKModel :: Int -> KripkeModel Int Int [Int]
-islandKModel n = M {agents,prims,states,accessibility,valuation}
-  where agents = [1..n]
-        prims  = [1..n]
-        s0 = map (const 1) [1..n]
-        states = s0 : [[if j == i then 0 else 1 | j <- [1..n]] | i <- [1..n]] -- [0..round (2.0 ** (fromIntegral n :: Float))]
-        accessibility m = [(s0,s0),(s0,[if j == m then 0 else 1 | j <- [1..n]]),([if j == m then 0 else 1 | j <- [1..n]],s0),([if j == m then 0 else 1 | j <- [1..n]],[if j == m then 0 else 1 | j <- [1..n]])]
-        valuation s k = if s!!(k-1) == 1 then True else False
-        -- the binary number with the n-th bit 1, and rest all zeros, is 2^n
-        -- logb x y = round $ logBase (fromIntegral x :: Float) (fromIntegral y :: Float)
-
--- tests m = concat [
---         [(Know ag (Prim pr))       
---         ,(Know ag (Neg $ Prim pr))
---         ,(Neg $ Know ag (Prim pr))
---         ,(Believe ag (Prim pr))
---         ,(Believe ag (Neg $ Prim pr))
---         ,(Neg $ Believe ag (Prim pr))] 
---         | pr <- prims m, ag <- agents m]
 tests m = concat [
         [(Know ag (Prim pr))] 
         | pr <- prims m, ag <- agents m]

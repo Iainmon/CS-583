@@ -1,0 +1,629 @@
+\documentclass[11pt]{article}
+%\documentclass[sigconf]{acmart}
+%\documentclass{IEEEtran}
+
+%\documentclass{amsproc}
+%\usepackage{newtxtext}
+%\renewcommand\ttdefault{cmtt}
+
+\usepackage{amssymb,amsmath}
+\usepackage{enumerate}
+\usepackage{fancyvrb}
+\usepackage{needspace}
+\usepackage{amsmath,amssymb}
+\usepackage{proof}
+\usepackage{stmaryrd}
+
+
+%%%
+%%% Formatting details
+%%%
+\usepackage[top=1in, bottom=1in, left=1in, right=1in]{geometry}
+\sloppy\sloppypar
+\widowpenalty=0
+\clubpenalty=0
+\displaywidowpenalty=0
+\raggedbottom
+\pagestyle{plain}
+
+
+
+\DefineVerbatimEnvironment{program}{Verbatim}
+  {baselinestretch=1.0,xleftmargin=5mm,fontsize=\small,samepage=true}
+
+\def\denseitems{
+    \itemsep1pt plus1pt minus1pt
+    \parsep0pt plus0pt
+    \parskip0pt\topsep0pt}
+
+
+%%%
+%%% A few macros
+%%%
+\newcommand{\RevisionNeeded}{\bigskip\noindent\fbox{
+\textbf{Be prepared to revise this section \emph{many} times!}}}
+
+\newcommand{\prog}[1]{{\small\texttt{#1}}}
+
+\newcommand{\Lg}{\textsf{L}}
+\newcommand{\Ag}{\textsf{Ag}}
+\newcommand{\At}{\textsf{At}}
+\newcommand{\Op}{\textsf{Op}}
+\newcommand{\set}[1]{\left\{#1\right\}}
+\def\OL{\Lg(\At,\Ag)}
+\def\acc{\textsf{acc}}
+\def\val{\textsf{val}}
+
+\def\vp{\varphi}
+
+
+\begin{document}
+
+\title{\textbf{Modal Logic Simulator}}
+
+\author{Iain Moncrief \\
+School of EECS \\
+Oregon State University
+}
+
+\maketitle
+
+\section{Introduction and Definitions}
+\label{sec:intro}
+
+%Provide a brief summary and some background of the project. How would it be useful?  What implementations do currently exist? What are their strengths and limitations?\\
+
+%Epistemic modal logic is a subfield of modal logic that attempts to describe the reasoning of modalities such as knowledge and belief. Here, we narrow our focus to epistemic logics that are specifically concerned with knowledge, and the knowledge of entities that can know propositions (these entities are called \emph{agents}). Even though our work is very specific to modal logics with a single modal operator for knowledge, our implementation is very general and can easily be extended to support other epistemic modalities, and even more general modalities. The languages of modal logics are perameterized by the atomic propositions which the propositional formulae will be built from, the operators which corespond to modalities, and the agents for which the modal operators relate to propositions via the modality. 
+%
+%\subsection{Object Language}
+%
+%Given a set of atomic propositions $\At$, a set of agents $\Ag$, and a set of modal operators $\Op$, the language of a modal logic is the set $\Lg(\At,\Ag,\Op)$, defined recursively via
+%\begin{align*}
+%%alpha \in \At\\
+%\vp\in \Lg(\At,\Ag,\Op) &::= \ p \ | \ \neg \varphi\ | \ \varphi \wedge \varphi \ | \ \square \varphi
+%\end{align*}
+%where $p\in \At$ and $ \square \in \Op$ are metavariables over atomic propositions and modal operators. Should the language be intended to describe modalities for multiple distinct agents, the language definition is modified to be
+%\begin{align*}
+%\vp\in \Lg(\At,\Ag,\Op) &::= \ p \ | \ \neg \varphi\ | \ \varphi \wedge \varphi \ | \ \square_\alpha \varphi
+%\end{align*}
+%where $\alpha \in \Ag$ is a metavariable ranging over the set of agents. Since we are only going to consider the knowledge modality, our set of modal operators is simply $\Op=\{K\}$, thus from here on, we abreviate $\Lg(\At,\Ag,\{K\})=\Lg(\At,\Ag)$ our object language. For clarity, the language we reason about is $\Lg(\At,\Ag)$, which is defined via
+%\begin{gather*}
+%\varphi \in L(\Ag,\At) ::= \ p \ | \ \neg \varphi\ | \ \varphi \wedge \varphi \ | \ K_\alpha \varphi \\ \alpha \in \Ag \qquad p\in \At
+%\end{gather*}
+%parameterized by the set $\At$ of primitive propositions and the set $\Ag$ of agents. 
+%
+%The productions that define $\OL$ don't seem to completely resemple the syntax of what one would expect from a logic, but this representation (along with some intuitive assumptions) yields a simple foundation to define more expressive connectives. We define the abbreviations, for any sentence $\vp,\psi\in \OL$ and primitive proposition $p\in \At$,
+%\begin{align*}
+%\bot&\equiv p\wedge \neg p\\
+%\top &\equiv \neg \bot\\
+%\varphi \vee \psi &\equiv \neg (\neg \varphi \wedge \neg \psi)\\
+%\vp \to \psi &\equiv \neg \vp \vee \psi\\
+%\vp \leftrightarrow \psi &\equiv (\vp \to \psi) \wedge (\psi \to \vp)
+%\end{align*}
+%thus introducing a shorthand for writing falsehood, tautology, disjunction, implication, and bidirectional implication. 
+%
+%
+%
+%
+%\subsection{Language Semantics}
+%
+%%\subsection{Inference rules}
+%We define some very basic rules of inference that preserve the truth of formulas in $\OL$, which then allow us to define logical axioms more clearly. We have the following basic rules
+%\begin{gather*}
+%\infer[\textsc{Taut}]{\top}{\qquad}\qquad
+%%\infer[\textsc{Prim}]{p}{V(p)=\top}\qquad
+%\infer[\textsc{$\neg$-Intro}]{\neg\neg\vp}{\vp}\qquad \infer[\textsc{$\neg$-Elim}]{\vp}{\neg\neg\vp}\\[8pt]
+%\infer[\textsc{$\wedge$-Intro}]{\vp\wedge \psi}{\vp & \psi}\qquad \infer[\textsc{$\wedge$-Sym}]{\vp\wedge \psi}{\psi \wedge \vp}\qquad \infer[\textsc{$\wedge$-Elim}]{\vp}{\vp\wedge \psi}\\[8pt]
+%\infer[\textsc{$\vee$-Intro}]{\vp\vee \psi}{\vp}\qquad \infer[\textsc{$\vee$-Sym}]{\vp\vee \psi}{\psi \vee \vp}\qquad \infer[\textsc{$\vee$-Elim}]{\psi}{\vp\vee \psi & \neg \vp}
+%%\\[8pt]
+%%\infer[\textsc{MP}]{\psi}{ \vp \to \psi &\vp}\qquad \infer[\textsc{MT}]{\neg\vp}{ \vp \to \psi &\neg \psi}
+%\end{gather*}
+%which allow us to define axioms within the language, which we discuss later. We have not verified that these are the minimal set of rules, but they provide the sufficient deductions for our language. 
+%
+%\subsubsection{Truth}
+%
+%Truth for non-epistemic proposition $\vp \in \OL$ ($\vp$ is absent of any modal operator) is determined by some valuation on $\At$ 
+%$$
+%V:\At \to \{\top,\bot\}
+%$$
+%which is a function that maps a primitive proposition to a true or false value. Then we can have the rules
+%\begin{gather*}
+%\infer[\textsc{Eval-T}]{p}{p\in \At & V(p)=\top}\qquad \infer[\textsc{Eval-F}]{\neg p}{p\in \At & V(p)=\bot}.
+%\end{gather*}
+%
+%Simply put, for a non-epistemic proposition $\vp$, given a valuation $V$, is true iff $\vp[p\mapsto V(p)]$ is true, using the standard conjunction and negation truth tables, applied inductively on the expression. A desirable representation of the semantics of $\OL$ would be to have a semantic function $$\llbracket \cdot \rrbracket : \OL \to \left(\At \to \{\top,\bot\}\right)\to \{\top,\bot\}$$
+%where the semantic domain is the set of all valuations on $\At$. However more is needed to appropriately decide truth for propositions that contain modal operators. 
+%
+%
+%\subsubsection{Kripke Models}
+%Kripke Models are structures that are used to determine truth for formulae in modal logics. For an epistemic logic $\Lg(\At,\Ag,\Op)$, a Kripke Model is a 3-tuple $M=\langle S,R^\Ag,V^\At\rangle$, where 
+%\begin{itemize}
+%	\item $S$ is a nonempty set of states/worlds,
+%	\item $R^\Ag:\Ag\to \mathcal P(S\times S)$ is a function that maps an agent to a relation on states,
+%	\item $V^\At: S \to  \At \to \{\top,\bot\}$ is a function that maps each state to a valuation on $\At$.   
+%\end{itemize}
+%
+%We abbreviate $\acc_\alpha $ to be the accessibility relation $ R^\Ag(\alpha)$ for $\alpha \in \Ag$, and $\val_s$ to be the valuation function for some state $s\in S$. 
+%
+%Given a pair $(M,s)$ of a Kripke Model and a state, we can determine if a sentence $\vp\in \OL$ is true, which we express via the notation $(M,s)\models \vp$. We define this relation for $\OL$ as
+%\begin{align*}
+%(M,s)&\models p\iff \val_s(p)=\top\\
+%(M,s)&\models \neg \vp \iff (M,s)\not\models \vp\\
+%(M,s)&\models \vp\wedge \psi \iff (M,s)\models \vp \text{ and } (M,s)\models \psi\\
+%(M,s)&\models K_\alpha\vp \iff \forall (s,t)\in \acc_\alpha : (M,t)\models \vp.
+%\end{align*}
+%where the rule for the knowledge modality can be thought of intuitively as: \emph{agent $\alpha$ knows $\vp$ in the world $s$ if in all worlds $\alpha$ considers, $\vp$ is true}.
+%
+%
+%\section{Implementation}
+%\subsection{Type Representations}
+%
+%When formulating the representations used in our implementation,  we made a point to preserve the generality of the formal definitions and avoided deviating for sake of efficiency. 
+%
+%For our representation of the language $\OL$, parameterized by the set of atomic propositions $\At$ and the set of agents $\Ag$, we use a parametric data type 
+%\begin{program}
+%data L agent prim
+%  = Prim prim
+%  | Neg (L agent prim) 
+%  | And (L agent prim) (L agent prim) 
+%  | Know agent (L agent prim)
+%\end{program}
+%where each production rule of $\OL$ corresponds to a constructor of \prog{L agent prim} parameterized by the type of agents \prog{agent} and the type of atomic propositions \prog{prim}.
+%
+%We use lists to represent general collections, which are intended to resemble sets, but using the \prog{Set} container in Haskell imposes typeclass constraints on functions that are intended to be as general as possible. We have the type synonym
+%\begin{program}
+%type Collection a = [a]	
+%\end{program}
+%The type representation of a Kripke Model is defined using the types for accessibility relations and valuation functions, represented as
+%\begin{program}
+%type AccessRelation agent state = agent -> Collection (state,state)
+%type Valuation state prim = state -> prim -> Bool	
+%\end{program}
+%where \prog{state} is the type of states.
+%Now, we define the type of a Kripke Model to be the data type
+%\begin{program}
+%data KripkeModel agent prim state
+%  = M { agents        :: Collection agent
+%      , prims         :: Collection prim
+%      , states        :: Collection state
+%      , accessibility :: AccessRelation agent state 
+%      , valuation     :: Valuation state prim
+%      }	
+%\end{program}
+%parameterized by the type of states \prog{state}, type of atomic propositions \prog{prim}, and the type of agents \prog{agent}. 
+%
+%
+%While the type definition for Kripke Models is very general, most of the implementation's core features are implemented using a more specific type, namely
+%\begin{program}
+%type State prim = Collection prim
+%type KripkeModel' agent prim = KripkeModel agent prim (State prim)
+%\end{program}
+%where \prog{Eq prim} is assumed. This allows us to have clean and efficient implementations of functions that construct Kripke Models. Motivation is discussed in section \ref{sec:evol}.
+%
+%\subsection{Essence}
+%The core of our implementation is made up of three functions:
+%Given a sentence $\vp\in \OL$,
+%\begin{program}
+%genKripke :: L agent prim -> (KripkeModel agent prim (State prim),[State prim])
+%\end{program}
+%will produce a pair of a Kripke Model $M$ and a set of satisfying states $S'\subseteq S$ such that $\forall s\in S' : (M,s)\models \vp$. Given a Kripke Model $M$, a state $s$, and a sentence $\vp\in \OL$,
+%\begin{program}
+%models :: KripkeModel agent prim state -> state -> L agent prim -> Bool
+%\end{program}
+%will decide if $(M,s)\models \vp$. Given the sentences $\vp,\psi\in \OL$,
+%\begin{program}
+%entails :: L agent prim -> L agent prim -> Bool
+%entails p p' = and [models km s p' | s <- ss]
+%    where (km,ss) = genKripke p
+%\end{program}
+%will decide if $\psi$ is entailed by $\vp$. 
+%
+%\subsection{Usage}
+%
+%Our implementation can be used to validate satisfyability, decided semantic entailment of a model, solve for models that entail a sentence, and determine if a formula follows from certain assumptions. Additionally, MLS can be applied to problems in a way that isolates the necessary encodings. 
+%
+%Using the function,
+%\begin{program}
+%(|=) :: (KripkeModel agent prim state, state) -> L agent prim -> Bool
+%(|=) (km,s) phi = models km s phi
+%\end{program}
+%users may test sentences against their own Kripke Model that they have defined, via some situation resembling 
+%\begin{program}
+%type Agent = Char
+%type Prim  = Int 
+%type State = Map Int Bool
+%testModel :: KripkeModel Agent Prim State
+%testState :: State
+%formula :: L Agent Prim
+%formula = Know 'a' (Prim 1 `And` Prim 2)
+%\end{program}
+%then evaluating \prog{(testModel,testState) |= formula} will decide if the model-state pair semantically entails the formula. Users will most likely find it undesirable to have to encode each knowledge structure they want to analyze as a value in Haskell. The function \prog{genKripke} will produce a model of a given sentence, which makes it much easier to analyze propositions. It is conceivable that users may want to avoid handling Kripke Models at all, and just test logical entailment. This is done using the \prog{entails} function, which does not concern the user with how truth of epistemic sentences is represented. 
+%
+%Other interesting functions can be defined, such as
+%\begin{program}
+%agentKnowledge :: L agent prim -> agent -> [L agent prim]	
+%\end{program}
+%which given a sentence and an agent, yields a list of propositions that the agent knows. Another example is the funnction
+%\begin{program}
+%satStates :: KripkeModel agent prim state -> L agent prim -> [state]	
+%\end{program}
+%that returns the states in a Kripke Model where a formula holds. 
+%
+%\section{Outcomes}
+%\label{sec:outcomes}
+%
+%
+%
+%%What is (are) the imput(s) and outcome(s) or resulting values of executing your program?
+%%%
+%%% Also, what kind of (static) analyses of DSL programs are conceivable? Typical
+%%% examples are type checking or some other form of consistency checking.
+%%%
+%%Note that, in general, a program can produce a variety of results.
+%%%
+%%% In fact,this aspect makes the use of a DSL very attractive, and this questions is an important part of the analysis of the DSL's purpose.
+%%%
+%%Consider, for example, a program for describing vacation plans (including
+%%alternatives).  We can imagine that a vacation plan can be analyzed to yield a
+%%set of \emph{date/time ranges} for the vacation (based on the availability of
+%%flights, hotels, etc.), or a set of \emph{cost estimates} (based on travel and
+%%date options). Moreover, we can imagine deriving \emph{to-do lists} from the
+%%travel plan (making reservations, buying tickets, etc.) or \emph{entertainment
+%%suggestions} (parks, museums, events, etc.).
+%%
+%%The outcomes should be made more precise in Section \ref{sec:analysis} in the
+%%form of function signatures once the basic objects and operations have been
+%%identified in Sections \ref{sec:objects} and \ref{sec:comb}, respectively.
+%
+%\section{Users}
+%\label{sec:users}
+%%
+%%How is the project going to be used, and what specifically is it used for?
+%%%
+%%What kind of users are affected by the project and in which way? What is known or can be reasonably assumed about the (technical/domain) background of users? (Usually, it is safe to assume that users are experts in the domain of the project.)
+%%
+%%Also, explain the limitations of the project. What features is \emph{not} covered, and what \emph{cannot} be done with it. (If different kinds of users are involved, what are there limitations of for the different user groups?)
+%%
+%
+%
+%
+%
+%
+%
+%
+%
+%%
+%%\section{Use Cases / Scenarios}
+%%\label{sec:examples}
+%
+%%Describe several typical example problems or use cases that can be addressed by your program. For each example, give a summary of what the example is about, and explain how important and representative it is for the domain.
+%%
+%%Then describe in more detail the steps involved in solving the problem (either by hand or with existing tools). This process can be very helpful in shedding light on what kind of basic objects, types, and operations are required.
+%%
+%%The final version of this section should contain a trivial example that illustrates the basic structure of your program as well as a bigger example that demonstrates the full scope of your project. The bigger example allows a reader to judge the scope and impact of your project and whether it would be useful to them.
+%%
+%%It is very important to clearly describe and distinguish between the inputs and outputs of your program.
+%%%
+%%Note that some projects present their functionality in the form of several different functions with different inputs and outputs.
+%
+%
+%
+%%\section{Implementation Language}
+%%\label{sec:language}
+%
+%%\noindent\fbox{\textbf{
+%%This section is optional.}}
+%%
+%%\bigskip\noindent
+%%%
+%%If you are not using Haskell, briefly say what (functional) language you use (Elm, ML, Idris, OCaml, Scheme, ...) to implement your project, and why.
+%%%
+%%What features of the language are important for your implementation that Haskell lacks?
+%
+%%
+%%\section{Basic Objects}
+%%\label{sec:objects}
+%%%
+%%%What are the basic objects that are manipulated and used by your program? Basic objects are those that are not composed out of other objects.
+%%%
+%%%As a general rule, the fewer basic objects one needs, the better, because the resulting design will be more concise and elegant.
+%%%%
+%%%The basic objects should be described by a set of Haskell \prog{type} and \prog{data} definitions. Use the \prog{program} environment to show code, as illustrated below.
+%%%
+%%%\begin{program}
+%%%type Point = (Int,Int)
+%%%\end{program}
+%%%%
+%%%Show how (some (parts) of) the examples from Section \ref{sec:examples} will be represented by values of the envisioned types. For example:
+%%%
+%%%\begin{program}
+%%%home :: Point
+%%%home = (10,13)
+%%%\end{program}
+%%%%
+%%%Also, list current limitations that you expect in a future iterations to overcome.
+%%%
+%%%\RevisionNeeded
+%%
+%%When formulating the representations used in our implementation,  we made a point to preserve the generality of the formal definitions and avoided deviating for sake of efficiency. 
+%%
+%%For our representation of the language $\OL$, parameterized by the set of atomic propositions $\At$ and the set of agents $\Ag$, we use a parametric data type 
+%%\begin{program}
+%%data L agent prim
+%%  = Prim prim
+%%  | Neg (L agent prim) 
+%%  | And (L agent prim) (L agent prim) 
+%%  | Know agent (L agent prim)
+%%\end{program}
+%%where each production rule of $\OL$ corresponds to a constructor of \prog{L agent prim} parameterized by the type of agents \prog{agent} and the type of atomic propositions \prog{prim}.
+%%
+%%We use lists to represent general collections, which are intended to resemble sets, though using the \prog{Set} container in Haskell imposes typeclass constraints on functions that are intended to be as general as possible. We have the type synonym
+%%\begin{program}
+%%type Collection a = [a]	
+%%\end{program}
+%%The type representation of a Kripke Model is defined using the types for accessibility relations and valuation functions, represented as
+%%\begin{program}
+%%type AccessRelation agent state = agent -> Collection (state,state)
+%%type Valuation state prim = state -> prim -> Bool	
+%%\end{program}
+%%where \prog{state} is the type of states.
+%%Now, we define the type of a Kripke Model to be the data type
+%%\begin{program}
+%%data KripkeModel agent prim state
+%%  = M { agents        :: Collection agent
+%%      , prims         :: Collection prim
+%%      , states        :: Collection state
+%%      , accessibility :: AccessRelation agent state 
+%%      , valuation     :: Valuation state prim
+%%      }	
+%%\end{program}
+%%parameterized by the type of states \prog{state}, type of atomic propositions \prog{prim}, and the type of agents \prog{agent}. 
+%%
+%%Using these definitions, the relation $(M,s)\models \vp$ for a Kripke Model $M$, a state $s$, and a sentence $\vp\in \OL$, can be represented as
+%%\begin{program}
+%%models :: KripkeModel agent prim state -> state -> L agent prim -> Bool
+%%\end{program}
+%%and define
+%%\begin{program}
+%%(|=) :: (KripkeModel agent prim state,state) -> L agent prim -> Bool
+%%(|=) (km,s) phi = models km s phi
+%%\end{program}
+%%as shorthand. Due to the accessibility relation type definition, there was an unintended consequence in our implementation, which is the constraint \prog{Eq state} becomes necessary when deciding $(M,s)\models K_a\vp$. The corresponding expression has the trace
+%%\begin{program}
+%%(km,s) |= (Know a phi) 
+%%  = and [(km,t) |= phi | (s',t) <- accessibility km a
+%%                       , s == s']
+%%\end{program}
+%%and \prog{accessibility km a} yields a general relation, and to distinguish just the pairs $(s',t)\in \acc_a$ such that $s=s'$, a form of equality is needed. In future implementations could yield more generic types. One solution would be to modify the type
+%%\begin{program}
+%%type AccessRelation agent state = agent -> Collection (state,state)
+%%\end{program}
+%%to the isomorphic type
+%%\begin{program}
+%%type AccessRelation agent state = agent -> state -> Collection state
+%%\end{program}
+%%which is would avoid the need for equality inside the \prog{models} function
+%%\begin{program}
+%%(km,s) |= (Know a phi) = and [(km,t) |= phi | t <- accessibility km a s]
+%%\end{program}
+%%thus removing the need for any typeclass constraint. 
+%%
+%%
+%%
+%%\section{Operators and Combinators}
+%%\label{sec:comb}
+%%
+%%%Identify operators that either transform objects into one another or build more complex objects out of simpler ones.
+%%%%
+%%%Depending on what implementation or form of embedding will be chosen, operators may be given as constructors of data types or functions.
+%%%
+%%%Combinators are higher-order functions that encode control structures specific to your project. The function \prog{map} is a combinator that realizes a looping construct for lists. The operations of the parser library Parsec are called \emph{parser combinators}, since parsers themselves are represented as functions.
+%%%%
+%%%The identification of the right set of combinators is a key step in the design of an elegant functional program.
+%%%
+%%%With basic objects, operators, and combinators, you should be able to demonstrate how the examples from Section \ref{sec:examples} can be represented. All limitations encountered here should be classified as either:
+%%%
+%%%\needspace{2\baselineskip}
+%%%\begin{enumerate}[(1)]\denseitems
+%%%\item Temporary
+%%%\item Fundamental
+%%%\end{enumerate}
+%%%%
+%%%Temporary limitations should be noted in this section and in  Section \ref{sec:objects} as \emph{TO DO} items for future revisions of the design.
+%%%%
+%%%Fundamental limitations should be reported and listed in detail in Section
+%%%\ref{sec:users}.
+%%%
+%%%\RevisionNeeded
+%%
+%%We had many instances of compositional definitions that yielded interesting and useful resulting constructs. Function composition allowed us to define very general (and few) basic operations and compose them using different combinators into other nontrivial operations.
+%%
+%%While the type definition for Kripke Models is very general, most of the implementation's core features are implemented using a more specific type, namely
+%%\begin{program}
+%%type State prim = Collection prim
+%%type KripkeModel' agent prim = KripkeModel agent prim (State prim)
+%%\end{program}
+%%where \prog{Eq prim} is assumed. This allows us to have clean and efficient implementations of functions that construct Kripke Models. 
+%%The core of our implementation is made up of three functions:
+%%Given a sentence $\vp\in \OL$,
+%%\begin{program}
+%%genKripke :: L agent prim -> (KripkeModel agent prim (State prim),[State prim])
+%%\end{program}
+%%will produce a pair of a Kripke Model $M$ and a set of satisfying states $S'\subseteq S$ such that $\forall s\in S' : (M,s)\models \vp$. Given a Kripke Model $M$, a state $s$, and a sentence $\vp\in \OL$,
+%%\begin{program}
+%%models :: KripkeModel agent prim state -> state -> L agent prim -> Bool
+%%\end{program}
+%%will decide if $(M,s)\models \vp$. Given the sentences $\vp,\psi\in \OL$,
+%%\begin{program}
+%%entails :: L agent prim -> L agent prim -> Bool
+%%\end{program}
+%%will decide if $\psi$ is entailed by $\vp$. Each of these functions are composed of the more basic operations
+%%\begin{program}
+%%satState :: Valuation state prim -> state -> L agent prim -> Bool
+%%agentKnowledge :: Eq agent => L agent prim -> agent -> [L agent prim]	
+%%agentsUsed :: Eq ag => L ag at -> [ag]
+%%primsUsed  :: Eq at => L ag at -> [at]
+%%\end{program}
+%%which then let us define 
+%%\begin{program}
+%%satStates :: Valuation state at -> [state] -> L ag at -> [state]
+%%satStatesKM :: KripkeModel ag at state -> L ag at -> [state]
+%%\end{program}
+%%and just with these functions, we have implemented an efficient algorithm for finding satisfying Kripke Models for a given formula.
+%%
+%\section{Implementation Strategy and Design Evolution}
+%\label{sec:implementation}
+%\label{sec:evol}
+%
+%%\noindent\fbox{\textbf{
+%%This section is optional. Include this section only if you have something interesting to say.}}
+%%
+%%\bigskip\noindent
+%%%
+%%You may want to discuss alternative representations, their advantages and disadvantages, and why you chose a particular representation for your project.
+%%%
+%%Keeping track of the evolution of your representation can sometimes be helpful in giving you confidence in your design decisions.
+%%
+%%As you iterate over different designs of your DSL, it is quite instructive to document some of the old, obsolete designs, that is, show the type definitions and function signatures, explain why this design seemed attractive at first and then what motivated you to change it.
+%%
+%%This part may seem like an unnecessary burden to you, but it helps you and others to understand your current design, and it probably answers questions that users (or reviewers) of the project might have about the design, because they may have thought of your initial design also and are wondering why it has not been adopted.
+%
+%
+%The datatype definition for Kripke Models was articulated early on in the project, though the best definition for \prog{Valuation state prim} was unclear. The formal definition of a valuation function $\val$ for a Kripke Model is the assignment of a truth mapping to each state in the Kripke Model. A correct, naive implementation would be
+%\begin{program}
+%type TMapping a = Map a Bool
+%type Valuation state prim = Map state (TMapping prim)
+%\end{program}
+%This implementation is correct, but would require the whole valuationn relation to be held in memory when used, thus would not leverage lazy evaluation. It would also impose considerable typeclass constraints on other functions, due to the \prog{Ord} typeclass requirements needed by most of the functions in the \prog{Data.Map} library. Then it was considered to have the states of a KripkeModel be the truth valuationns themselves, so  
+%\begin{program}
+%type State prim = [(prim,Bool)]
+%type Valuation prim = State prim -> prim -> Bool
+%\end{program}
+%then the definition of the valuation function would come nicely as
+%\begin{program}
+%valuation :: Eq prim => Valuation prim
+%valuation = flip lookup	
+%\end{program}
+%but still requires a typeclass constraint and doesn't allow for much lazieness. Finally, an efficient representation for states and valuations was decided on. It was realized that each state $s\in S$ could be represented as an element of the powerset of primitive propositios $s\in \mathcal P (\At)$, so then the valuation function becomes equivelent to set inclusion $\val_s(p) \iff p\in s\quad \forall p \in \At$. So then the types follow 
+%\begin{program}
+%type State prim = Collection prim
+%type KripkeModel' agent prim = KripkeModel agent prim (State prim)
+%\end{program}
+%then we have
+%\begin{program}
+%decide :: Eq prim => State prim -> prim -> Bool
+%decide = flip elem
+%consKM :: (Eq agent, Eq prim) => 
+%          [agent] -> 
+%          [prim] -> 
+%          AccessRelation agent (State prim) -> 
+%          KripkeModel' agent prim
+%consKM ags pps access 
+%  = M { agents        = ags
+%      , prims         = pps
+%      , states        = subsets pps
+%      , valuation     = decide
+%      , accessibility = access
+%      }
+%\end{program}
+%which makes it much easier to construct Kripke Models in more general ways, without having to define total valuation functions. 
+%Due to the accessibility relation type definition, there was an unintended consequence in our implementation, which is the constraint \prog{Eq state} becomes necessary when deciding $(M,s)\models K_a\vp$. The corresponding expression has the trace
+%\begin{program}
+%(km,s) |= (Know a phi) 
+%  = and [(km,t) |= phi | (s',t) <- accessibility km a
+%                       , s == s']
+%\end{program}
+%and \prog{accessibility km a} yields a general relation, and to distinguish just the pairs $(s',t)\in \acc_a$ such that $s=s'$, a form of equality is needed. Future implementations could yield more generic types. One solution would be to modify the type
+%\begin{program}
+%type AccessRelation agent state = agent -> Collection (state,state)
+%\end{program}
+%to the isomorphic type
+%\begin{program}
+%type AccessRelation agent state = agent -> state -> Collection state
+%\end{program}
+%which is would avoid the need for equality inside the \prog{models} function
+%\begin{program}
+%(km,s) |= (Know a phi) = and [(km,t) |= phi | t <- accessibility km a s]
+%\end{program}
+%thus removing the need for any typeclass constraint. 
+%
+%The core functions are composed of the more basic operations
+%\begin{program}
+%satState :: Valuation state prim -> state -> L agent prim -> Bool
+%agentKnowledge :: Eq agent => L agent prim -> agent -> [L agent prim]	
+%agentsUsed :: Eq ag => L ag at -> [ag]
+%primsUsed  :: Eq at => L ag at -> [at]
+%\end{program}
+%which then let us define 
+%\begin{program}
+%satStates :: Valuation state at -> [state] -> L ag at -> [state]
+%satStatesKM :: KripkeModel ag at state -> L ag at -> [state]
+%\end{program}
+%and just with these functions, we have implemented an efficient algorithm for finding satisfying Kripke Models for a given formula.
+%
+%
+%\section{Related DSLs}
+%\label{sec:related}
+%
+%Try to find similar projects to the one described here and compare them with your implementation. Projects with the same or slightly different outcomes help you refine the design of the project requirements described in Sections \ref{sec:users} and \ref{sec:outcomes}.
+%
+%\bigskip\noindent\fbox{
+%\textbf{These related projects can be part of your in-class presentation.}}
+%
+%
+%\section{Future Work}
+%\label{sec:future}
+%
+%\noindent\fbox{\textbf{
+%This section is optional. Include this section only if you have something interesting to say.}}
+%
+%\bigskip\noindent
+%%
+%A speculation about what it takes to remove some of the limitations and whether it seems worth the effort.
+%
+%
+%
+%\section*{References}
+%
+%List references to similar projects identified in Section \ref{sec:related} and
+%potentially other related work.
+
+
+
+
+
+
+
+\begin{gather*}
+\infer{A\nsim B}{\text{the sound of $A$ is unlike the sound of $B$}}\qquad \infer{X\bowtie Y}{\text{$X$ is called $A$} & & \text{$Y$ is called $B$} && A\nsim B}\\[8pt]
+\infer{X\bowtie Y}{\text{$X$ is lacking the looks of $Y$}}
+\end{gather*}
+where $\nsim$ is a relation on names, and $A\nsim B$ is read as ``$A$ is not the same as $B$", $\bowtie$ is a realation on things, and $X\bowtie Y$ is read ``$X$ is different from $Y$".
+
+
+
+
+%
+%\pagebreak 
+%
+%
+%to explain, you have computed the sum of the vectors,  so
+%$$\langle x,y\rangle  = \langle 170 \cos( 290 ) + 35 \cos( 15 ) , 170 \sin( 290 ) + 35 \sin( 15 )\rangle $$
+%so then 
+%$$x = 170 \cos( 290 ) + 35 \cos( 15 )$$ and $$y = 170 \sin( 290 ) + 35 \sin( 15 )$$
+%then you need to convert to polar. 
+%to get the new polar form version, $\langle r,\theta\rangle $ you write $$r = \sqrt {x^2 + y^2}$$ and $$\theta=\tan^{-1}(y/x)$$ then substitute $x$ and $y$, so you get
+%$$
+%r = \sqrt {x^2 + y^2} = \sqrt {(170 \cos( 290 ) + 35 \cos( 15 ))^2 + (170 \sin( 290 ) + 35 \sin( 15 ))^2}
+%$$
+%and 
+%$$
+%\theta = \tan^{-1}(y/x) = \tan^{-1}((170 \sin( 290 ) + 35 \sin( 15 ))/(170 \cos( 290 ) + 35 \cos( 15 )))
+%$$
+%so you have 
+%\begin{align*}
+%\langle r,\theta\rangle  &= \langle \sqrt {x^2 + y^2}, \tan^{-1}(y/x)\rangle \\
+%          &= \langle \sqrt {(170 \cos( 290 ) + 35 \cos( 15 ))^2 + (170 \sin( 290 ) + 35 \sin( 15 ))^2},\\&\qquad  \tan^{-1}\left(\frac {170 \sin( 290 ) + 35 \sin( 15 )} {170 \cos( 290 ) + 35 \cos( 15 )}\right)\rangle 
+%\end{align*}
+
+\end{document}

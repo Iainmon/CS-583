@@ -35,11 +35,12 @@ Hard Part:
 
 Now we only need to find the relation $E$, along with the labeling relation $\ell_a$ for each agent $\alpha \in Ag$. 
 
+$$
+K_a (p_1\wedge p_2)
+$$
 
 
- 
 $$
 
 $$
-
 
